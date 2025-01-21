@@ -1,5 +1,5 @@
 import os
-import pulp
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum
 from moviepy import VideoFileClip
 
 def obter_duracoes_dos_videos(caminho_pasta):
@@ -39,7 +39,7 @@ problem = LpProblem("Montagem_Videos", LpMinimize)
 
 # Variáveis de decisão
 c = [LpVariable(f"c_{i}", cat="Binary") for i in range(len(duracao_comeco))]
-m = [LpVariable(f"m_{j}", cat="Binary") for j in range(len(duracao_meio))]
+m = [LpVariable(f"m_{j}", lowBound=0, cat="Integer") for j in range(len(duracao_meio))]
 f = [LpVariable(f"f_{k}", cat="Binary") for k in range(len(duracao_fim))]
 
 # Restrições
@@ -53,8 +53,14 @@ duracao_total = (
     lpSum(f[k] * duracao_fim[k] for k in range(len(duracao_fim)))
 )
 
+z = LpVariable("abs_diff", lowBound=0)
+
 # Função objetivo
-problem += abs(duracao_total - x), "Minimizar diferença"
+problem += z >= duracao_total - x
+problem += z >= x - duracao_total
+
+# Função objetivo: minimizar a diferença
+problem += z, "Minimizar diferença"
 
 # Resolver o problema
 problem.solve()
@@ -62,6 +68,6 @@ problem.solve()
 # Resultado
 print("Vídeos selecionados:")
 print("Começo:", [i for i in range(len(c)) if c[i].varValue == 1])
-print("Meio:", [j for j in range(len(m)) if m[j].varValue == 1])
+print("Meio:", {j: m[j].varValue for j in range(len(m)) if m[j].varValue > 0})
 print("Fim:", [k for k in range(len(f)) if f[k].varValue == 1])
 print("Duração total:", duracao_total.value())
